@@ -1,0 +1,1 @@
+deb [signed-by=/usr/share/keyrings/nexus-archive-keyring.gpg] https://nexusdr-x.github.io/bullseye-repo ./

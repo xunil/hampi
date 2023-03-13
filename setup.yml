@@ -1,0 +1,144 @@
+---
+- hosts: all
+  name: Set up Raspberry Pi for amateur radio use
+  become: true
+  vars:
+    - hampi_user: "xunil"
+    - hampi_user_home: "/home/{{ hampi_user }}"
+    - hampi_arch: "armhf"
+    - packages:
+      - direwolf
+      - fldigi
+      - fllog
+      - flrig
+      - libhamlib-utils
+      - pat
+      - wfview
+      - wsjtx
+      - xastir
+
+  tasks:
+  # These steps derived from https://github.com/NexusDR-X/nexus-bootstrap/blob/main/bootstrap0
+  - name: "Install NexusDR-X GPG key"
+    copy:
+      src: "nexus-archive-keyring.gpg"
+      dest: "/usr/share/keyrings/nexus-archive-keyring.gpg"
+      owner: "root"
+      group: "root"
+      mode: '0644'
+
+  - name: "Configure NexusDR-X package repository"
+    copy:
+      src: "nexusdr-x.list"
+      dest: "/etc/apt/sources.list.d/nexusdr-x.list"
+      owner: "root"
+      group: "root"
+      mode: '0644'
+
+  - name: "Install Apt preference for NexuSDR-X repo"
+    copy:
+      src: "99nexus"
+      dest: "/etc/apt/preferences.d/99nexus"
+      owner: "root"
+      group: "root"
+      mode: '0644'
+
+  - name: "Install /etc/modules"
+    copy:
+      src: "modules"
+      dest: "/etc/modules"
+      owner: "root"
+      group: "root"
+      mode: '0644'
+
+  - name: "Install config file for snd-aloop module"
+    copy:
+      src: "snd-aloop.conf"
+      dest: "/etc/modprobe.d/snd-aloop.conf"
+      owner: "root"
+      group: "root"
+      mode: '0644'
+
+  - name: "Gather package facts"
+    package_facts:
+      manager: auto
+
+  - name: "Update Apt cache"
+    apt:
+      update_cache: true
+
+  - name: "Work around libax25 package issue"
+    block:
+    - name: "Download libax25"
+      command: "apt download libax25"
+
+    - name: "Fetch libax25 package name"
+      command: "ls -1 {{ hampi_user_home }}/libax25_*.deb"
+      register: ax25_package_name
+
+    - name: "Force install libax25"
+      command: "dpkg -i --force-overwrite {{ ax25_package_name }}"
+    when: "'libax25' not in ansible_facts.packages"
+
+  - name: "Install ham packages"
+    apt:
+      pkg: "{{ packages }}"
+      state: present
+
+  - name: "Install Pat configuration"
+    template:
+      src: pat.conf.j2
+      dest: "{{ hampi_user_home }}/.config/pat"
+      owner: "{{ hampi_user }}"
+      mode: '0644'
+
+  - name: "Ensure Pat starts on boot"
+    debug:
+      msg: "Not yet implemented"
+
+  - name: "Install AX.25 configs"
+    debug:
+      msg: "Not yet implemented"
+
+  - name: "Install VNC server"
+    apt:
+      name: realvnc-vnc-server
+      state: present
+
+  - name: "Ensure VNC server starts on boot"
+    systemd:
+      name: vncserver-x11-serviced.service
+      enabled: yes
+      masked: no
+      state: started
+
+  - name: "Set VNC server resolution"
+    command: "raspi-config nonint do_vnc_resolution '1440x1080'"
+
+  - name: "Install WSJT-X config"
+    copy:
+      src: "WSJT-X.ini"
+      dest: "{{ hampi_user_home }}/.config/WSJT-X.ini"
+      owner: "{{ hampi_user }}"
+      mode: '0644'
+
+  - name: "Install Terminal preferences file"
+    copy:
+      src: "lxterminal.conf"
+      dest: "{{ hampi_user_home }}/.config/lxterminal/lxterminal.conf"
+      owner: "{{ hampi_user }}"
+      group: "{{ hampi_user }}"
+      mode: '0644'
+
+  - name: "Install panel preferences file"
+    copy:
+      src: "panel"
+      dest: "{{ hampi_user_home }}/.config/lxpanel/LXDE-pi/panels/panel"
+      owner: "{{ hampi_user }}"
+      group: "{{ hampi_user }}"
+      mode: '0644'
+
+  - name: "Configure Wi-Fi access point"
+    debug:
+      msg: "Not yet implemented, testing on infrastructure AP first"
+
